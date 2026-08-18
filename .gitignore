@@ -1,0 +1,7 @@
+/node_modules
+/dist
+
+.DS_Store
+CHANGELOG.md
+example.ts
+example-v0.2.ts

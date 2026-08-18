@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package flare;
+
+service AppService {
+  rpc CreateApp (CreateAppRequest) returns (CreateAppResponse);
+  rpc GetApp (GetAppRequest) returns (GetAppResponse);
+}
+
+message CreateAppRequest {
+  string name = 1;
+  string owner_uid = 2;
+  string app_id = 3;
+  string api_key = 4;
+  string admin_key = 5;
+  string jwt_secret = 6;
+  string db_name = 7;
+  string public_key = 8;
+  string private_key = 9;
+  AppSettings settings = 10;
+}
+
+message AppSettings {
+  int32 max_connections = 1;
+  bool enable_encryption = 2;
+  string rules_dsl = 3;
+  string rules_history_policy = 4;
+  repeated string rules_restore_events = 5;
+  PushSettings push = 6;
+}
+
+message PushSettings {
+  string vapid_public_key = 1;
+  string vapid_private_key = 2;
+  string vapid_subject = 3;
+  string welcome_notification = 4;
+}
+
+message CreateAppResponse {
+  string app_id = 1;
+  string db_name = 2;
+  string name = 3;
+  string owner_uid = 4;
+  string api_key = 5;
+  string admin_key = 6;
+  string jwt_secret = 7;
+  string public_key = 8;
+  string private_key = 9;
+  AppSettings settings = 10;
+  string created_at = 11;
+}
+
+message GetAppRequest {
+  string app_id = 1;
+}
+
+message GetAppResponse {
+  string app_id = 1;
+  string db_name = 2;
+  string name = 3;
+  string owner_uid = 4;
+  string api_key = 5;
+  string admin_key = 6;
+  string jwt_secret = 7;
+  string public_key = 8;
+  string private_key = 9;
+  AppSettings settings = 10;
+  string created_at = 11;
+}

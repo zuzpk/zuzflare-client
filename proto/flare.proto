@@ -1,0 +1,11 @@
+// flare.proto: root import for all flare gRPC services
+syntax = "proto3";
+
+package flare;
+
+import "app.proto";
+import "auth.proto";
+import "admin.proto";
+import "query.proto";
+
+// Add more imports/services as needed

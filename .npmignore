@@ -1,0 +1,17 @@
+dist
+node_modules
+*.log
+.DS_Store
+.env
+*.tsbuildinfo
+example.ts
+
+# Keep source and configs
+!src
+!*.json
+!*.md
+!LICENSE
+
+CHANGELOG.md
+example.ts
+example-v0.2.ts

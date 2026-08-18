@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package flare;
+
+import "query.proto";
+
+service AdminService {
+  rpc AdminQuery (AdminQueryRequest) returns (AdminQueryResponse);
+  rpc CreateCustomToken (CreateCustomTokenRequest) returns (CreateCustomTokenResponse);
+  rpc CreateAuthTicket (CreateAuthTicketRequest) returns (CreateAuthTicketResponse);
+  rpc GetDocument (AdminDocumentRequest) returns (AdminDocumentResponse);
+  rpc CreateDocument (AdminCreateDocumentRequest) returns (AdminMutationResponse);
+  rpc ReplaceDocument (AdminUpsertDocumentRequest) returns (AdminMutationResponse);
+  rpc UpdateDocument (AdminUpsertDocumentRequest) returns (AdminMutationResponse);
+  rpc DeleteDocument (AdminDocumentRequest) returns (AdminDeleteDocumentResponse);
+  rpc DeleteMany (AdminDeleteManyRequest) returns (AdminDeleteManyResponse);
+}
+
+message AdminQueryRequest {
+  string app_id = 1;
+  string admin_key = 2;
+  string collection = 3;
+  StructuredQuery query = 4;
+}
+
+message AdminQueryResponse {
+  string collection = 1;
+  StructuredQuery query = 2;
+  int32 count = 3;
+  string data_json = 4;
+  string error = 5;
+  string error_description = 6;
+}
+
+message CreateCustomTokenRequest {
+  string app_id = 1;
+  string admin_key = 2;
+  string uid = 3;
+  string role = 4;
+  string claims_json = 5;
+  string ttl = 6;
+}
+
+message CreateCustomTokenResponse {
+  string token = 1;
+  string error = 2;
+  string error_description = 3;
+}
+
+message CreateAuthTicketRequest {
+  string app_id = 1;
+  string admin_key = 2;
+  string uid = 3;
+  string role = 4;
+  string email = 5;
+  string sid = 6;
+  string tag = 7;
+  int64 ttl_seconds = 8;
+  string ip = 9;
+}
+
+message CreateAuthTicketResponse {
+  string ticket = 1;
+  string tag = 2;
+  string uuid = 3;
+  string expires_at = 4;
+  bool one_time = 5;
+  string uid = 6;
+  string role = 7;
+  string ip = 8;
+  string error = 9;
+  string error_description = 10;
+}
+
+message AdminDocumentRequest {
+  string app_id = 1;
+  string admin_key = 2;
+  string collection = 3;
+  string doc_id = 4;
+}
+
+message AdminDocumentResponse {
+  string collection = 1;
+  string doc_id = 2;
+  string data_json = 3;
+  bool found = 4;
+  string error = 5;
+  string error_description = 6;
+}
+
+message AdminCreateDocumentRequest {
+  string app_id = 1;
+  string admin_key = 2;
+  string collection = 3;
+  string data_json = 4;
+}
+
+message AdminUpsertDocumentRequest {
+  string app_id = 1;
+  string admin_key = 2;
+  string collection = 3;
+  string doc_id = 4;
+  string data_json = 5;
+}
+
+message AdminMutationResponse {
+  string id = 1;
+  string error = 2;
+  string error_description = 3;
+}
+
+message AdminDeleteDocumentResponse {
+  bool deleted = 1;
+  string error = 2;
+  string error_description = 3;
+}
+
+message AdminDeleteManyRequest {
+  string app_id = 1;
+  string admin_key = 2;
+  string collection = 3;
+  repeated AnyFilter where = 4;
+}
+
+message AdminDeleteManyResponse {
+  int64 deleted = 1;
+  string error = 2;
+  string error_description = 3;
+}

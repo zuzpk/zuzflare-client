@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package flare;
+
+service QueryService {
+  rpc RunQuery (QueryRequest) returns (QueryResponse);
+}
+
+message QueryRequest {
+  string app_id = 1;
+  string collection = 2;
+  StructuredQuery query = 3;
+}
+
+message QueryResponse {
+  string collection = 1;
+  StructuredQuery query = 2;
+  int32 count = 3;
+  string data_json = 4;
+  string error = 5;
+  string error_description = 6;
+}
+
+message StructuredQuery {
+  repeated AnyFilter where = 1;
+  repeated OrderByClause order_by = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  CursorValue start_at = 5;
+  CursorValue start_after = 6;
+  CursorValue end_at = 7;
+  CursorValue end_before = 8;
+  repeated AggregateSpec aggregate = 9;
+  GroupByClause group_by = 10;
+  repeated HavingClause having = 11;
+  repeated JoinClause joins = 12;
+  VectorSearchClause vector_search = 13;
+  repeated string select = 14;
+  string distinct_field = 15;
+}
+
+message QueryFilter {
+  string field = 1;
+  string op = 2;
+  string value_json = 3;
+}
+
+message OrFilter {
+  repeated AnyFilter or = 1;
+}
+
+message AndFilter {
+  repeated AnyFilter and = 1;
+}
+
+message AnyFilter {
+  oneof filter {
+    QueryFilter query_filter = 1;
+    OrFilter or_filter = 2;
+    AndFilter and_filter = 3;
+  }
+}
+
+message OrderByClause {
+  string field = 1;
+  string dir = 2;
+}
+
+message GroupByClause {
+  repeated string fields = 1;
+}
+
+message HavingClause {
+  string field = 1;
+  string op = 2;
+  double value = 3;
+}
+
+message CursorValue {
+  repeated string values_json = 1;
+}
+
+message AggregateSpec {
+  string fn = 1;
+  string field = 2;
+  string alias = 3;
+}
+
+message JoinClause {
+  string from = 1;
+  string local_field = 2;
+  string foreign_field = 3;
+  string as = 4;
+  bool single = 5;
+  repeated AnyFilter where = 6;
+  repeated OrderByClause order_by = 7;
+  int32 limit = 8;
+  int32 offset = 9;
+  repeated string select = 10;
+  repeated JoinClause joins = 11;
+}
+
+message VectorSearchClause {
+  string field = 1;
+  repeated double vector = 2;
+  int32 k = 3;
+  string metric = 4;
+  double min_score = 5;
+}
