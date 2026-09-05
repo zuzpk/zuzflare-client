@@ -151,6 +151,7 @@ export interface FlareAuthSession {
     provider?: string;
     email?: string | null;
     emailVerified?: boolean;
+    bfp?: string; // Browser fingerprint for device binding
 }
 
 export interface FlareAuthUser {

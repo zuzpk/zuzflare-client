@@ -14,6 +14,7 @@ import {
 import { getCookie } from "@zuzjs/core";
 import { FlareError } from "../Errors";
 import ErrorCodes from "../Errors/codes";
+import { generateBrowserFingerprint } from "./fingerprint";
 import { AuthConfigListener, AuthResult, AuthStateListener, BrowserPushRegistrationOptions, BrowserPushTokenOptions, CopyObjectInput, DeleteObjectInput, DeleteObjectsInput, DownloadObjectInput, DownloadObjectResult, FlareAuthConfig, FlareAuthHydrationInput, FlareAuthHydrationOptions, FlareAuthSession, FlareAuthUser, FlareStorageSignedUrlResult, FlareStorageTransferManagerConfig, GetObjectInput, GetObjectResult, GetObjectUrlInput, HeadObjectInput, HeadObjectsInput, ListObjectsInput, ListObjectsResult, PushSendResult, PutObjectInput, PutObjectResult, QueryPresetMap, RegisterPushTokenInput, SendPushNotificationInput, StorageBucket, StorageBucketInput, StorageObjectMeta, StorageProgress, StorageSignedUrlInput } from "../types";
 import { FlareAction, FlareEvent } from "../types/message";
 import { FlareBase } from "./base";
@@ -556,13 +557,36 @@ const syncedWithTicket = await this.syncSocketAuth(null)
             hasSessionBefore: Boolean(this.authSession),
         });
 
+        // Generate browser fingerprint for device validation
+        const bfp = await generateBrowserFingerprint();
+
         const trace = await this.timedFetch('refreshAuthSession', `${base}/auth/refresh?appId=${encodeURIComponent(this.config.appId)}`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json', ...this.getCsrfHeaders(), ...(this.config.apiKey ? { 'x-flare-api-key': this.config.apiKey } : {}) },
-            body: JSON.stringify({ appId: this.config.appId, apiKey: this.config.apiKey, ...(refresh_token ? { refresh_token } : {}) }),
+            body: JSON.stringify({ appId: this.config.appId, apiKey: this.config.apiKey, ...(refresh_token ? { refresh_token } : {}), ...(bfp ? { bfp } : {}) }),
         });
         const json = await this.parseJsonWithTiming('refreshAuthSession', trace) as Record<string, unknown>;
+        
+        // Handle deduplication response (race condition prevention)
+        if (json.error === 'token_refresh_in_progress') {
+            this.traceAuth('refreshAuthSession.dedup', {
+                status: 200,
+                reason: 'deduplication_window',
+            });
+            
+            // Wait a bit and retry - the first request should have completed
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Return current session if available, or retry once
+            if (this.authSession?.accessToken) {
+                return this.authSession;
+            }
+            
+            // Retry once
+            return this.refreshAuthSession(refresh_token);
+        }
+        
         if (!trace.response.ok) {
             if (trace.response.status === 401) {
                 this.traceAuth('refreshAuthSession.response', {
@@ -1416,7 +1440,7 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     }
 
     // Email / password
-    protected async requestEmailPasswordToken(email: string, password: string, scope?: string[]): Promise<AuthToken & { kind: string }> {
+    protected async requestEmailPasswordToken(email: string, password: string, scope?: string[], bfp?: string): Promise<AuthToken & { kind: string }> {
         if (typeof process !== 'undefined' && process.versions?.node && this.config.grpcUrl && this.config.transport !== 'ws' && this.config.transport !== 'http') {
             try {
                 const { runGrpcLogin } = await runtimeImport('./grpc') as typeof import('./grpc');
@@ -1447,6 +1471,7 @@ const syncedWithTicket = await this.syncSocketAuth(null)
             email,
             password,
             scope: scope?.length ? scope.join(' ') : undefined,
+            ...(bfp ? { bfp } : {}),
         });
         const trace = await this.timedFetch('requestEmailPasswordToken', `${base}/auth/token?appId=${encodeURIComponent(this.config.appId)}`, {
             method: 'POST',
@@ -1475,12 +1500,14 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     async signInWithEmailAndPassword(
         email: string,
         password: string,
-        options?: { scope?: string[]; createIfMissing?: boolean },
+        options?: { scope?: string[]; createIfMissing?: boolean; bfp?: string },
     ): Promise<AuthResult & { kind?: string; accessToken: string; refreshToken: string | null; authToken: AuthToken; created?: boolean }> {
 
         // console.log(`Attempting sign-in with email: ${email}, options:`, options);
         try {
-            const authToken = await this.requestEmailPasswordToken(email, password, options?.scope);
+            // Use provided fingerprint or generate one
+            const bfp = options?.bfp ?? await generateBrowserFingerprint();
+            const authToken = await this.requestEmailPasswordToken(email, password, options?.scope, bfp);
             const result = await this.auth(authToken.access_token);
             const profile = await this.fetchAuthMe(authToken.access_token).catch(() => null);
             this.setAuthSession({
@@ -1633,7 +1660,7 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     async createUserWithEmailAndPassword(
         email: string,
         password: string,
-        options?: { scope?: string[]; additionalParams?: Record<string, string>; signInIfAllowed?: boolean },
+        options?: { scope?: string[]; additionalParams?: Record<string, string>; signInIfAllowed?: boolean; bfp?: string },
     ) {
         return this.createUserWithEmail(email, password, options);
     }
