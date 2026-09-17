@@ -1440,7 +1440,14 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     }
 
     // Email / password
-    protected async requestEmailPasswordToken(email: string, password: string, scope?: string[], bfp?: string): Promise<AuthToken & { kind: string }> {
+    protected async requestEmailPasswordToken(
+        email: string, 
+        password: string, 
+        scope?: string[], 
+        bfp?: string,
+        /** Email prefix for multi-tenant accounts (e.g., "abc123" for "abc123:email@example.com") */
+        prefix?: string
+    ): Promise<AuthToken & { kind: string }> {
         if (typeof process !== 'undefined' && process.versions?.node && this.config.grpcUrl && this.config.transport !== 'ws' && this.config.transport !== 'http') {
             try {
                 const { runGrpcLogin } = await runtimeImport('./grpc') as typeof import('./grpc');
@@ -1470,6 +1477,7 @@ const syncedWithTicket = await this.syncSocketAuth(null)
             grant_type: 'password',
             email,
             password,
+            prefix,
             scope: scope?.length ? scope.join(' ') : undefined,
             ...(bfp ? { bfp } : {}),
         });
@@ -1500,14 +1508,20 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     async signInWithEmailAndPassword(
         email: string,
         password: string,
-        options?: { scope?: string[]; createIfMissing?: boolean; bfp?: string },
+        options?: { 
+            scope?: string[]; 
+            createIfMissing?: boolean; 
+            bfp?: string;
+            /** Email prefix for multi-tenant accounts (e.g., "abc123" for "abc123:email@example.com") */
+            prefix?: string;
+        },
     ): Promise<AuthResult & { kind?: string; accessToken: string; refreshToken: string | null; authToken: AuthToken; created?: boolean }> {
 
         // console.log(`Attempting sign-in with email: ${email}, options:`, options);
         try {
             // Use provided fingerprint or generate one
             const bfp = options?.bfp ?? await generateBrowserFingerprint();
-            const authToken = await this.requestEmailPasswordToken(email, password, options?.scope, bfp);
+            const authToken = await this.requestEmailPasswordToken(email, password, options?.scope, bfp, options?.prefix);
             const result = await this.auth(authToken.access_token);
             const profile = await this.fetchAuthMe(authToken.access_token).catch(() => null);
             this.setAuthSession({
@@ -1526,7 +1540,11 @@ const syncedWithTicket = await this.syncSocketAuth(null)
             // console.log(`FlareError during signInWithEmailAndPassword:`, err, err.message);
 
             if (options?.createIfMissing && isNotFound) {
-                const created = await this.createUserWithEmail(email, password, { scope: options.scope, signInIfAllowed: true });
+                const created = await this.createUserWithEmail(email, password, { 
+                    scope: options.scope, 
+                    prefix: options?.prefix,
+                    signInIfAllowed: true 
+                });
                 if (created.verification_required) {
                     throw new FlareError('Email verification required before sign-in', ErrorCodes.AuthenticationFailed);
                 }
@@ -1552,14 +1570,29 @@ const syncedWithTicket = await this.syncSocketAuth(null)
         }
     }
 
-    async signInWithEmail(email: string, password: string, options?: { scope?: string[]; createIfMissing?: boolean }) {
+    async signInWithEmail(
+        email: string, 
+        password: string, 
+        options?: { 
+            scope?: string[]; 
+            createIfMissing?: boolean;
+            /** Email prefix for multi-tenant accounts (e.g., "abc123" for "abc123:email@example.com") */
+            prefix?: string;
+        }
+    ) {
         return this.signInWithEmailAndPassword(email, password, options);
     }
 
     async createUserWithEmail(
         email: string,
         password: string,
-        options?: { scope?: string[]; additionalParams?: Record<string, string>; signInIfAllowed?: boolean },
+        options?: { 
+            scope?: string[]; 
+            additionalParams?: Record<string, string>; 
+            signInIfAllowed?: boolean;
+            /** Email prefix for multi-tenant accounts (e.g., "abc123" creates "abc123:email@example.com") */
+            prefix?: string;
+        },
     ): Promise<
         | {
             kind?: string;
@@ -1660,7 +1693,14 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     async createUserWithEmailAndPassword(
         email: string,
         password: string,
-        options?: { scope?: string[]; additionalParams?: Record<string, string>; signInIfAllowed?: boolean; bfp?: string },
+        options?: { 
+            scope?: string[]; 
+            additionalParams?: Record<string, string>; 
+            signInIfAllowed?: boolean; 
+            bfp?: string;
+            /** Email prefix for multi-tenant accounts (e.g., "abc123" creates "abc123:email@example.com") */
+            prefix?: string;
+        },
     ) {
         return this.createUserWithEmail(email, password, options);
     }
@@ -1668,7 +1708,12 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     async signInOrCreateWithEmail(
         email: string,
         password: string,
-        options?: { scope?: string[]; additionalParams?: Record<string, string> },
+        options?: { 
+            scope?: string[]; 
+            additionalParams?: Record<string, string>;
+            /** Email prefix for multi-tenant accounts (e.g., "abc123" creates "abc123:email@example.com") */
+            prefix?: string;
+        },
     ): Promise<
         | { kind?: string; verificationRequired: true; created: true; emailSent: boolean; preview?: { code: string; link: string } }
         | (AuthResult & { accessToken: string; refreshToken: string | null; authToken: AuthToken; created: boolean })
@@ -1682,6 +1727,7 @@ const syncedWithTicket = await this.syncSocketAuth(null)
             const created = await this.createUserWithEmail(email, password, {
                 scope: options?.scope,
                 additionalParams: options?.additionalParams,
+                prefix: options?.prefix,
                 signInIfAllowed: true,
             });
             if (created.verification_required) {
@@ -1707,7 +1753,12 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     async signInOrCreateWithEmailAndPassword(
         email: string,
         password: string,
-        options?: { scope?: string[]; additionalParams?: Record<string, string> },
+        options?: { 
+            scope?: string[]; 
+            additionalParams?: Record<string, string>;
+            /** Email prefix for multi-tenant accounts (e.g., "abc123" creates "abc123:email@example.com") */
+            prefix?: string;
+        },
     ) {
         return this.signInOrCreateWithEmail(email, password, options);
     }
@@ -1944,7 +1995,13 @@ const syncedWithTicket = await this.syncSocketAuth(null)
     protected async registerWithEmail(
         email: string,
         password: string,
-        options?: { scope?: string[]; additionalParams?: Record<string, string>; signInIfAllowed?: boolean },
+        options?: { 
+            scope?: string[]; 
+            additionalParams?: Record<string, string>; 
+            signInIfAllowed?: boolean;
+            /** Email prefix for multi-tenant accounts (e.g., "abc123" creates "abc123:email@example.com") */
+            prefix?: string;
+        },
     ): Promise<Record<string, any>> {
         if (typeof process !== 'undefined' && process.versions?.node && this.config.grpcUrl && this.config.transport !== 'ws' && this.config.transport !== 'http') {
             try {
@@ -1975,6 +2032,7 @@ const syncedWithTicket = await this.syncSocketAuth(null)
             grant_type: 'create_user',
             email,
             password,
+            prefix: options?.prefix,
             scope: options?.scope?.length ? options.scope.join(' ') : undefined,
             additional_params: options?.additionalParams ? JSON.stringify(options.additionalParams) : undefined,
         });
