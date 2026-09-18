@@ -2049,4 +2049,53 @@ const syncedWithTicket = await this.syncSocketAuth(null)
         return json as Record<string, any>;
     }
 
+
+    /**
+     * Update password for the current authenticated user
+     * @param email User's email address
+     * @param currentPassword Current password for verification
+     * @param newPassword New password to set
+     * @param options Additional options including prefix for multi-tenant accounts
+     */
+    async updatePassword(
+        email: string,
+        currentPassword: string,
+        newPassword: string,
+        options?: { 
+            /** Email prefix for multi-tenant accounts (e.g., "abc123" for "abc123:email@example.com") */
+            prefix?: string;
+        }
+    ): Promise<{ ok: boolean; password_updated: boolean }> {
+        const base = this.getHttpBase();
+        await this.ensureCsrfProtection();
+        
+        const body = JSON.stringify({
+            appId: this.config.appId,
+            email: email.trim().toLowerCase(),
+            currentPassword,
+            newPassword,
+            prefix: options?.prefix,
+        });
+        
+        const trace = await this.timedFetch('updatePassword', `${base}/auth/password/update?appId=${encodeURIComponent(this.config.appId)}`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json', 
+                ...this.getCsrfHeaders(),
+                ...(this.config.apiKey ? { 'x-flare-api-key': this.config.apiKey } : {})
+            },
+            body,
+        });
+        
+        const json = await this.parseJsonWithTiming('updatePassword', trace);
+        if (!trace.response.ok) {
+            this.throwFetchFlareError(json, 'Password update failed', ErrorCodes.AuthenticationFailed);
+        }
+        
+        return {
+            ok: Boolean(json.ok),
+            password_updated: Boolean(json.password_updated),
+        };
+    }
 }
