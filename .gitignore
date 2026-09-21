@@ -1,6 +1,6 @@
 /node_modules
 /dist
-
+/fix-md
 .DS_Store
 CHANGELOG.md
 example.ts
