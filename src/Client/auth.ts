@@ -1973,6 +1973,10 @@ const syncedWithTicket = await this.syncSocketAuth(null)
                 const base = this.getHttpBase();
                 await this.ensureCsrfProtection();
                 // console.log(`--signOuting`, this.authSession)
+                
+                // Don't require a valid access token for logout.
+                // The server should accept logout with just cookies + CSRF.
+                // Cookies contain the refresh token for session identification.
                 await this.timedFetch('signOut', `${base}/auth/logout?appId=${encodeURIComponent(this.config.appId)}`, {
                     method: 'POST',
                     credentials: 'include',
@@ -1980,9 +1984,8 @@ const syncedWithTicket = await this.syncSocketAuth(null)
                         'Content-Type': 'application/json',
                         ...this.getCsrfHeaders(),
                         ...(this.config.apiKey ? { 'x-flare-api-key': this.config.apiKey } : {}),
-                        ...(this.authSession?.accessToken ? { Authorization: `Bearer ${this.authSession.accessToken}` } : {}),
                     },
-                    body: JSON.stringify({ appId: this.config.appId, apiKey: this.config.apiKey, refresh_token: this.authSession?.refreshToken }),
+                    body: JSON.stringify({ appId: this.config.appId, apiKey: this.config.apiKey }),
                 }).catch(() => undefined);
             }
         } finally {
